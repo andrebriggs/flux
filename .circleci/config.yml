@@ -9,6 +9,15 @@ jobs:
       - checkout
       - setup_remote_docker
 
+      - run:
+          name: Rebase on top of latest master
+          command: |
+            if [[ "${CIRCLE_BRANCH}" != "master" && "${CIRCLE_BRANCH}" != release* ]]; then
+              git fetch origin master
+              git rebase origin/master
+              git rev-parse HEAD
+            fi
+
       - run: curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
       - run: dep ensure -vendor-only
       - run: make check-generated
@@ -44,6 +53,16 @@ jobs:
     working_directory: ~/go/src/github.com/weaveworks/flux
     steps:
       - checkout
+
+      - run:
+          name: Rebase on top of latest master
+          command: |
+            if [[ "${CIRCLE_BRANCH}" != "master" && "${CIRCLE_BRANCH}" != release* ]]; then
+              git fetch origin master
+              git rebase origin/master
+              git rev-parse HEAD
+            fi
+
       - run: test/e2e/e2e-golang.sh
       - run: test/e2e/e2e-flux-build.sh
       - run: test/e2e/e2e-kind.sh
