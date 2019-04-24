@@ -11,6 +11,8 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/weaveworks/flux"
 	"github.com/weaveworks/flux/cluster"
@@ -88,6 +90,8 @@ func (d *Daemon) Loop(stop chan struct{}, wg *sync.WaitGroup, logger log.Logger)
 			}
 			if err := d.doSync(logger, &lastKnownSyncTagRev, &warnedAboutSyncTagChange); err != nil {
 				logger.Log("err", err)
+				fmt.Println("------------------------ Loop SYNC ERRORS OCCURED -------------------------")
+				opsErrorState.Inc()
 			}
 			syncTimer.Reset(d.SyncInterval)
 		case <-syncTimer.C:
@@ -125,6 +129,8 @@ func (d *Daemon) Loop(stop chan struct{}, wg *sync.WaitGroup, logger log.Logger)
 				err := d.Repo.Refresh(ctx)
 				if err != nil {
 					logger.Log("err", err)
+					fmt.Println("------------------------ REPO REFRESH ERRORS OCCURED -------------------------")
+					opsErrorState.Inc()
 				}
 				cancel()
 			}
@@ -208,6 +214,7 @@ func (d *Daemon) doSync(logger log.Logger, lastKnownSyncTagRev *string, warnedAb
 	var resourceErrors []event.ResourceError
 	if err := fluxsync.Sync(syncSetName, allResources, d.Cluster); err != nil {
 		logger.Log("err", err)
+		fmt.Println("------------------------ RESOURCE ERRORS OCCURED -------------------------")
 		switch syncerr := err.(type) {
 		case cluster.SyncError:
 			for _, e := range syncerr {
@@ -410,6 +417,8 @@ func (d *Daemon) doSync(logger log.Logger, lastKnownSyncTagRev *string, warnedAb
 			},
 		}); err != nil {
 			logger.Log("err", err)
+			fmt.Println("------------------------ LogEvent ERRORS OCCURED -------------------------")
+			opsErrorState.Inc()
 			// Abort early to ensure at least once delivery of events
 			return err
 		}
@@ -417,6 +426,8 @@ func (d *Daemon) doSync(logger log.Logger, lastKnownSyncTagRev *string, warnedAb
 		for _, event := range noteEvents {
 			if err = d.LogEvent(event); err != nil {
 				logger.Log("err", err)
+				opsErrorState.Inc()
+				fmt.Println("------------------------ LogEvent2 ERRORS OCCURED -------------------------")
 				// Abort early to ensure at least once delivery of events
 				return err
 			}
@@ -446,6 +457,7 @@ func (d *Daemon) doSync(logger log.Logger, lastKnownSyncTagRev *string, warnedAb
 			return err
 		}
 	}
+	opsErrorState.Set(0)
 	return nil
 }
 
@@ -465,3 +477,13 @@ func makeGitConfigHash(remote git.Remote, conf git.Config) string {
 	}
 	return base64.RawURLEncoding.EncodeToString(pathshash.Sum(nil))
 }
+
+var (
+	//A simple numeric value that can go up and down and exposes a current state of the application.
+	opsErrorState = promauto.NewGauge(prometheus.GaugeOpts{
+		Name:      "flux_app_error_state",
+		Help:      "Counter that counts the number of successes",
+		Namespace: "flux",
+		Subsystem: "cluster",
+	})
+)

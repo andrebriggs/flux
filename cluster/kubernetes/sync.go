@@ -16,7 +16,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/imdario/mergo"
 	"github.com/pkg/errors"
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -112,7 +112,7 @@ func (c *Cluster) Sync(syncSet cluster.SyncSet) error {
 	if errs == nil {
 		return nil
 	}
-
+	fmt.Println("------------------------ SYNC ERRORS OCCURED -------------------------")
 	// It is expected that Cluster.Sync is invoked with *all* resources.
 	// Otherwise it will override previously recorded sync errors.
 	c.setSyncErrors(errs)
@@ -448,6 +448,7 @@ func (objs applyOrder) Less(i, j int) bool {
 }
 
 func (c *Kubectl) apply(logger log.Logger, cs changeSet, errored map[flux.ResourceID]error) (errs cluster.SyncError) {
+	fmt.Println("EXECUTING KUBECTL APPLY ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ")
 	f := func(objs []applyObject, cmd string, args ...string) {
 		if len(objs) == 0 {
 			return
